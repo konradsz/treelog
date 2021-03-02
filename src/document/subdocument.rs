@@ -7,6 +7,13 @@ pub struct Subdocument {
 }
 
 impl Subdocument {
+    pub fn full_document(content: Arc<Content>) -> Self {
+        Self {
+            indices: (0..content.len()).map(|i| i as u32).collect(),
+            content,
+        }
+    }
+
     pub fn new(content: Arc<Content>) -> Self {
         Self {
             content,
