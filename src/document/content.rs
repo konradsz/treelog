@@ -18,6 +18,10 @@ impl Content {
         })
     }
 
+    pub fn get_line(&self, index: u32) -> &str {
+        &self.data[index as usize]
+    }
+
     pub fn len(&self) -> usize {
         self.data.len()
     }
