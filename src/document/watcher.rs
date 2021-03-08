@@ -5,25 +5,21 @@ use std::sync::Arc;
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
-    sync::{watch, RwLock},
+    sync::mpsc::{channel, Receiver, Sender},
+    sync::RwLock,
 };
 
 use crate::Content;
 
 pub struct Watcher {
     content: Arc<RwLock<Content>>,
-    tx: watch::Sender<u32>,
-    rx: watch::Receiver<u32>,
+    tx: Sender<u32>,
 }
 
 impl Watcher {
-    pub fn new(content: Arc<RwLock<Content>>) -> Self {
-        let (tx, rx) = watch::channel(0);
-        Self { content, tx, rx }
-    }
-
-    pub fn new_receiver(&self) -> watch::Receiver<u32> {
-        self.rx.clone()
+    pub fn new(content: Arc<RwLock<Content>>) -> (Self, Receiver<u32>) {
+        let (tx, rx) = channel(512);
+        (Self { content, tx }, rx)
     }
 
     pub async fn watch(&self) -> Result<()> {
@@ -43,7 +39,7 @@ impl Watcher {
             while let Some(line) = lines.next_line().await? {
                 let mut content = self.content.write().await;
                 content.add_line(line);
-                self.tx.send(read_lines)?;
+                self.tx.send(read_lines).await?;
                 read_lines += 1;
             }
 

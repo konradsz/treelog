@@ -13,8 +13,8 @@ use document::{Content, Node, Watcher};
 async fn main() -> Result<()> {
     let content = Arc::new(RwLock::new(Content::new("example".into())?));
 
-    let watcher = Watcher::new(content.clone());
-    let mut node = Node::new(watcher.new_receiver(), content.clone(), "pattern");
+    let (watcher, rx) = Watcher::new(content.clone());
+    let mut node = Node::new(rx, content.clone(), "pattern");
     let watcher_task = tokio::spawn(async move {
         watcher.watch().await.unwrap();
     });

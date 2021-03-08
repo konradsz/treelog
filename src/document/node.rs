@@ -1,19 +1,22 @@
-use std::{borrow::Borrow, sync::Arc};
-use tokio::sync::{watch, RwLock};
+use std::sync::Arc;
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender},
+    RwLock,
+};
 
 use crate::Content;
 
 pub struct Node {
-    parent: watch::Receiver<u32>,
-    tx: watch::Sender<u32>,
-    rx: watch::Receiver<u32>,
+    parent: Receiver<u32>,
+    tx: Sender<u32>,
+    rx: Receiver<u32>,
     content: Arc<RwLock<Content>>,
     indices: Vec<u32>,
 }
 
 impl Node {
-    fn root(parent: watch::Receiver<u32>, content: Arc<RwLock<Content>>) -> Self {
-        let (tx, rx) = watch::channel(0);
+    fn root(parent: Receiver<u32>, content: Arc<RwLock<Content>>) -> Self {
+        let (tx, rx) = channel(512);
         Self {
             parent,
             tx,
@@ -23,8 +26,8 @@ impl Node {
         }
     }
 
-    pub fn new(parent: watch::Receiver<u32>, content: Arc<RwLock<Content>>, pattern: &str) -> Self {
-        let (tx, rx) = watch::channel(0);
+    pub fn new(parent: Receiver<u32>, content: Arc<RwLock<Content>>, pattern: &str) -> Self {
+        let (tx, rx) = channel(512);
         Self {
             parent,
             tx,
@@ -35,13 +38,11 @@ impl Node {
     }
 
     pub async fn watch(&mut self) {
-        loop {
-            while self.parent.changed().await.is_ok() {
-                // let content = self.content.read().await;
-                // if content.matches(pattern)
-                self.indices.push(*self.parent.borrow());
-                // push to children
-            }
+        while let Some(index) = self.parent.recv().await {
+            // let content = self.content.read().await;
+            // if content.matches(pattern)
+            self.indices.push(index);
+            // push to children
         }
     }
 }
