@@ -18,7 +18,7 @@ pub struct Watcher {
 
 impl Watcher {
     pub fn new(content: Arc<RwLock<Content>>) -> (Self, Receiver<u32>) {
-        let (tx, rx) = channel(512);
+        let (tx, rx) = channel(4096);
         (Self { content, tx }, rx)
     }
 

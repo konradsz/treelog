@@ -16,7 +16,7 @@ pub struct Node {
 
 impl Node {
     fn root(parent: Receiver<u32>, content: Arc<RwLock<Content>>) -> Self {
-        let (tx, rx) = channel(512);
+        let (tx, rx) = channel(4096);
         Self {
             parent,
             tx,
@@ -27,7 +27,7 @@ impl Node {
     }
 
     pub fn new(parent: Receiver<u32>, content: Arc<RwLock<Content>>, pattern: &str) -> Self {
-        let (tx, rx) = channel(512);
+        let (tx, rx) = channel(4096);
         Self {
             parent,
             tx,
