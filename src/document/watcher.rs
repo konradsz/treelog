@@ -1,11 +1,11 @@
 use anyhow::Result;
+use async_channel::{unbounded, Receiver, Sender};
 use futures_util::StreamExt;
 use inotify::{Inotify, WatchMask};
 use std::sync::Arc;
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
-    sync::mpsc::{channel, Receiver, Sender},
     sync::RwLock,
 };
 
@@ -18,7 +18,7 @@ pub struct Watcher {
 
 impl Watcher {
     pub fn new(content: Arc<RwLock<Content>>) -> (Self, Receiver<u32>) {
-        let (tx, rx) = channel(4096);
+        let (tx, rx) = unbounded();
         (Self { content, tx }, rx)
     }
 
