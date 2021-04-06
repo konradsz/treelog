@@ -54,8 +54,7 @@ impl Node {
 
 impl OnNotify for Node {
     fn get_receiver(&self) -> Receiver<u32> {
-        let a = self.rx.to_owned();
-        a.unwrap()
+        self.rx.to_owned().unwrap()
     }
 
     fn set_parent_rx(&mut self, rx: Receiver<u32>) {
@@ -65,7 +64,8 @@ impl OnNotify for Node {
     fn observe_node(&mut self) {
         let (tx, rx) = channel(0);
         self.rx = Some(rx);
-        let mut parent_rx = self.parent_rx.as_ref().unwrap().clone();
+
+        let mut parent_rx = self.parent_rx.to_owned().unwrap();
         let name = self.name.clone();
         tokio::spawn(async move {
             let mut times = 0;
