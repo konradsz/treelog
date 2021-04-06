@@ -1,12 +1,20 @@
 use slab::Slab;
 use std::collections::HashMap;
 
-pub struct Tree<T> {
+use crate::document::{Identifiable, OnNotify};
+
+pub struct Tree<T>
+where
+    T: OnNotify + Identifiable,
+{
     data: Slab<T>,
     structure: HashMap<usize, Vec<usize>>,
 }
 
-impl<T> Tree<T> {
+impl<T> Tree<T>
+where
+    T: OnNotify + Identifiable,
+{
     pub fn new(root_value: T) -> (Self, usize) {
         let mut data = Slab::with_capacity(64);
         let root_id = data.insert(root_value);
@@ -14,20 +22,40 @@ impl<T> Tree<T> {
         let mut structure = HashMap::new();
         structure.insert(root_id, Vec::new());
 
+        // SAFETY: it is safe to use get_unchecked since this element was added line above
+        unsafe {
+            data.get_unchecked_mut(root_id).set_id(root_id);
+            data.get_unchecked_mut(root_id).observe_node();
+        }
+
         (Tree { data, structure }, root_id)
     }
 
     pub fn add_node(&mut self, parent_id: usize, value: T) -> Option<usize> {
         if let Some(parent) = self.structure.get_mut(&parent_id) {
-            let new_id = self.data.insert(value);
-            parent.push(new_id);
-            self.structure.insert(new_id, Vec::new());
-            Some(new_id)
+            let node_id = self.data.insert(value);
+
+            // SAFETY: it is safe to use get_unchecked since this element was added line above
+            unsafe {
+                self.data.get_unchecked_mut(node_id).set_id(node_id);
+
+                let parent_rx = self.data.get_unchecked_mut(parent_id).get_receiver();
+                self.data
+                    .get_unchecked_mut(node_id)
+                    .set_parent_rx(parent_rx);
+
+                self.data.get_unchecked_mut(node_id).observe_node();
+            }
+
+            parent.push(node_id);
+            self.structure.insert(node_id, Vec::new());
+            Some(node_id)
         } else {
             None
         }
     }
 
+    #[allow(dead_code)]
     pub fn remove_node(&mut self, node_id: usize) {
         let mut nodes_to_remove = Vec::new();
         self.collect_ids(node_id, &mut nodes_to_remove);
@@ -41,11 +69,14 @@ impl<T> Tree<T> {
     fn collect_ids(&self, id: usize, all: &mut Vec<usize>) {
         all.push(id);
         if let Some(children) = self.structure.get(&id) {
-            for c in children {
-                self.collect_ids(*c, all);
+            for child in children {
+                self.collect_ids(*child, all);
             }
         }
     }
 
-    pub fn get_node(&self, id: usize) {}
+    #[allow(dead_code)]
+    fn get_node(&self, id: usize) -> &T {
+        self.data.get(id).unwrap()
+    }
 }

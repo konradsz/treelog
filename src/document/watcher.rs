@@ -1,12 +1,14 @@
 use anyhow::Result;
-use async_channel::{unbounded, Receiver, Sender};
 use futures_util::StreamExt;
 use inotify::{Inotify, WatchMask};
 use std::sync::Arc;
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
-    sync::RwLock,
+    sync::{
+        watch::{channel, Receiver, Sender},
+        RwLock,
+    },
 };
 
 use crate::Content;
@@ -18,7 +20,7 @@ pub struct Watcher {
 
 impl Watcher {
     pub fn new(content: Arc<RwLock<Content>>) -> (Self, Receiver<u32>) {
-        let (tx, rx) = unbounded();
+        let (tx, rx) = channel(0);
         (Self { content, tx }, rx)
     }
 
@@ -29,7 +31,7 @@ impl Watcher {
         let mut lines = reader.lines();
 
         let mut inotify = Inotify::init()?;
-        inotify.add_watch(content.get_path(), WatchMask::MODIFY)?;
+        inotify.add_watch(content.get_path(), WatchMask::CLOSE_WRITE)?;
         let mut event_buffer = [0u8; 32];
 
         drop(content);
@@ -37,10 +39,13 @@ impl Watcher {
         let mut read_lines = 0;
         loop {
             while let Some(line) = lines.next_line().await? {
-                let mut content = self.content.write().await;
-                content.add_line(line);
-                self.tx.send(read_lines).await?;
-                read_lines += 1;
+                if !line.is_empty() {
+                    //println!("read line: {}", &line);
+                    let mut content = self.content.write().await;
+                    content.add_line(line);
+                    self.tx.send(read_lines)?;
+                    read_lines += 1;
+                }
             }
 
             let mut stream = inotify.event_stream(&mut event_buffer)?;
