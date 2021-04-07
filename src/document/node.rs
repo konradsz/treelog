@@ -1,8 +1,12 @@
 use std::sync::Arc;
-use tokio::sync::{
-    watch::{channel, Receiver},
-    RwLock,
+use tokio::{
+    select,
+    sync::{
+        watch::{channel, Receiver},
+        RwLock,
+    },
 };
+use tokio_util::sync::CancellationToken;
 
 use crate::Content;
 
@@ -10,6 +14,7 @@ pub trait OnNotify {
     fn get_receiver(&self) -> Receiver<u32>;
     fn set_parent_rx(&mut self, rx: Receiver<u32>);
     fn observe_node(&mut self);
+    fn cancel(&self);
 }
 
 pub trait Identifiable {
@@ -24,6 +29,7 @@ pub struct Node {
     id: usize,
     parent_rx: Option<Receiver<u32>>,
     rx: Option<Receiver<u32>>,
+    cancellation_token: CancellationToken,
 }
 
 impl Node {
@@ -36,6 +42,7 @@ impl Node {
             id: 0,
             parent_rx: Some(parent_rx),
             rx: None,
+            cancellation_token: CancellationToken::new(),
         }
     }
 
@@ -48,6 +55,7 @@ impl Node {
             id: 0,
             parent_rx: None,
             rx: None,
+            cancellation_token: CancellationToken::new(),
         }
     }
 }
@@ -64,10 +72,12 @@ impl OnNotify for Node {
     fn observe_node(&mut self) {
         let (tx, rx) = channel(0);
         self.rx = Some(rx);
+        let cancellation_token = self.cancellation_token.clone();
 
         let mut parent_rx = self.parent_rx.to_owned().unwrap();
         let name = self.name.clone();
-        tokio::spawn(async move {
+
+        let observe_task = async move {
             let mut times = 0;
             while parent_rx.changed().await.is_ok() {
                 let idx = *parent_rx.borrow();
@@ -80,7 +90,17 @@ impl OnNotify for Node {
                 //if matches
                 tx.send(idx).unwrap();
             }
+        };
+        tokio::spawn(async move {
+            select! {
+                _ = cancellation_token.cancelled() => (),
+                _ = observe_task => (),
+            }
         });
+    }
+
+    fn cancel(&self) {
+        self.cancellation_token.cancel();
     }
 }
 

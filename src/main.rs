@@ -29,6 +29,8 @@ async fn main() -> Result<()> {
     let watcher_task = tokio::spawn(async move {
         watcher.watch().await.unwrap();
     });
+
+    tree.remove_node(child_1_id.unwrap());
     /*let c = content.clone();
     let sleep_task = tokio::spawn(async move {
         loop {

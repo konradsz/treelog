@@ -22,7 +22,7 @@ where
         let mut structure = HashMap::new();
         structure.insert(root_id, Vec::new());
 
-        // SAFETY: it is safe to use get_unchecked since this element was added line above
+        // Safety: it is safe to use get_unchecked since this element was added line above
         unsafe {
             data.get_unchecked_mut(root_id).set_id(root_id);
             data.get_unchecked_mut(root_id).observe_node();
@@ -35,7 +35,7 @@ where
         if let Some(parent) = self.structure.get_mut(&parent_id) {
             let node_id = self.data.insert(value);
 
-            // SAFETY: it is safe to use get_unchecked since this element was added line above
+            // Safety: it is safe to use get_unchecked since this element was added line above
             unsafe {
                 self.data.get_unchecked_mut(node_id).set_id(node_id);
 
@@ -60,9 +60,12 @@ where
         let mut nodes_to_remove = Vec::new();
         self.collect_ids(node_id, &mut nodes_to_remove);
 
-        for node in nodes_to_remove {
-            self.structure.remove(&node);
-            self.data.remove(node);
+        for node_id in nodes_to_remove {
+            let node = self.data.get(node_id).unwrap();
+            node.cancel();
+
+            self.structure.remove(&node_id);
+            self.data.remove(node_id);
         }
     }
 
