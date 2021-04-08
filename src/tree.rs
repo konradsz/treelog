@@ -1,7 +1,8 @@
 use slab::Slab;
 use std::collections::HashMap;
 
-use crate::document::{Identifiable, OnNotify, PassthroughMatcher, PatternMatcher};
+use crate::document::{Identifiable, OnNotify};
+use crate::matcher::{PassthroughMatcher, PatternMatcher};
 
 pub struct Tree<T>
 where

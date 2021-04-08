@@ -4,6 +4,6 @@ mod subdocument;
 mod watcher;
 
 pub use content::Content;
-pub use node::{Identifiable, Matcher, Node, OnNotify, PassthroughMatcher, PatternMatcher};
+pub use node::{Identifiable, Node, OnNotify};
 pub use subdocument::Subdocument;
 pub use watcher::Watcher;

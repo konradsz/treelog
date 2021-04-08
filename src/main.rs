@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod document;
+pub mod matcher;
 mod tree;
 
 use document::{Content, Node, Watcher};
