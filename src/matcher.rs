@@ -29,7 +29,7 @@ impl Matcher for PatternMatcher {
                 line.as_ref(),
                 UTF8(|_lnum, _line| {
                     found = true;
-                    Ok(true)
+                    Ok(false)
                 }),
             )
             .unwrap();
