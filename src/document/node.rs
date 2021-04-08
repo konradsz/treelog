@@ -13,7 +13,7 @@ use crate::Content;
 pub trait OnNotify {
     fn get_receiver(&self) -> Receiver<u32>;
     fn set_parent_rx(&mut self, rx: Receiver<u32>);
-    fn observe_node(&mut self);
+    fn observe_node<M: 'static + Matcher + Send>(&mut self, matcher: M);
     fn cancel(&self);
 }
 
@@ -21,10 +21,58 @@ pub trait Identifiable {
     fn set_id(&mut self, id: usize);
 }
 
+////////////////////////////////////////////////
+use anyhow::Result;
+use grep::{
+    regex::RegexMatcher,
+    searcher::{sinks::UTF8, Searcher},
+};
+
+pub trait Matcher {
+    fn matches(&mut self, line: &str) -> bool;
+}
+pub struct PatternMatcher {
+    regex_matcher: RegexMatcher,
+}
+
+impl PatternMatcher {
+    pub fn new(pattern: &str) -> Result<Self> {
+        Ok(Self {
+            regex_matcher: RegexMatcher::new(pattern)?,
+        })
+    }
+}
+
+impl Matcher for PatternMatcher {
+    fn matches(&mut self, line: &str) -> bool {
+        let mut found = false;
+        Searcher::new()
+            .search_slice(
+                &self.regex_matcher,
+                line.as_ref(),
+                UTF8(|_lnum, _line| {
+                    //self.regex_matcher.find(line.as_bytes())?.unwrap();
+                    found = true;
+                    Ok(true)
+                }),
+            )
+            .unwrap();
+        found
+    }
+}
+
+pub struct PassthroughMatcher();
+
+impl Matcher for PassthroughMatcher {
+    fn matches(&mut self, _line: &str) -> bool {
+        true
+    }
+}
+////////////////////////////////////////////////
+
 pub struct Node {
-    _content: Arc<RwLock<Content>>,
+    content: Arc<RwLock<Content>>,
     _indices: Vec<u32>,
-    _last_read_index: u32,
     name: String,
     id: usize,
     parent_rx: Option<Receiver<u32>>,
@@ -35,9 +83,8 @@ pub struct Node {
 impl Node {
     pub fn root(content: Arc<RwLock<Content>>, name: String, parent_rx: Receiver<u32>) -> Self {
         Self {
-            _content: content,
+            content,
             _indices: Vec::new(),
-            _last_read_index: 0,
             name,
             id: 0,
             parent_rx: Some(parent_rx),
@@ -46,11 +93,10 @@ impl Node {
         }
     }
 
-    pub fn new(content: Arc<RwLock<Content>>, name: String, _pattern: &str) -> Self {
+    pub fn new(content: Arc<RwLock<Content>>, name: String) -> Self {
         Self {
-            _content: content,
+            content,
             _indices: Vec::new(),
-            _last_read_index: 0,
             name,
             id: 0,
             parent_rx: None,
@@ -69,7 +115,7 @@ impl OnNotify for Node {
         self.parent_rx = Some(rx);
     }
 
-    fn observe_node(&mut self) {
+    fn observe_node<M: 'static + Matcher + Send>(&mut self, mut matcher: M) {
         let (tx, rx) = channel(0);
         self.rx = Some(rx);
         let cancellation_token = self.cancellation_token.clone();
@@ -77,20 +123,27 @@ impl OnNotify for Node {
         let mut parent_rx = self.parent_rx.to_owned().unwrap();
         let name = self.name.clone();
 
+        let content = self.content.clone();
+
         let observe_task = async move {
-            let mut times = 0;
+            let mut next_index_to_read = 0;
+
             while parent_rx.changed().await.is_ok() {
-                let idx = *parent_rx.borrow();
-                times += 1;
+                let notification_index = *parent_rx.borrow();
 
-                //if a > 999_900 {
-                println!("\"{}\" notified {} times about: {}", name, times, idx);
-                //}
+                for i in next_index_to_read..=notification_index {
+                    let content_lock = content.read().await;
+                    let line = content_lock.get_line(i);
+                    if matcher.matches(line) {
+                        println!("\"{}\" matches for \"{}\"", line, name);
+                        tx.send(i).unwrap();
+                    }
+                }
 
-                //if matches
-                tx.send(idx).unwrap();
+                next_index_to_read = notification_index + 1;
             }
         };
+
         tokio::spawn(async move {
             select! {
                 _ = cancellation_token.cancelled() => (),

@@ -17,20 +17,21 @@ async fn main() -> Result<()> {
     let root = Node::root(content.clone(), "root".into(), root_notify.clone());
     let (mut tree, root_id) = Tree::new(root);
 
-    let child_1 = Node::new(content.clone(), "child_1".into(), "pattern");
-    let child_1_id = tree.add_node(root_id, child_1);
+    let child_1 = Node::new(content.clone(), "child_1".into());
+    let child_1_id = tree.add_node(root_id, child_1, "line");
 
-    let child_2 = Node::new(content.clone(), "child_2".into(), "pattern");
-    let _child_2_id = tree.add_node(root_id, child_2);
+    let child_2 = Node::new(content.clone(), "child_2".into());
+    let _child_2_id = tree.add_node(root_id, child_2, "child2");
 
-    let child_3 = Node::new(content.clone(), "child_3".into(), "pattern");
-    let _child_3_id = tree.add_node(child_1_id.unwrap(), child_3);
+    let child_3 = Node::new(content.clone(), "child_3".into());
+    let _child_3_id = tree.add_node(child_1_id.unwrap(), child_3, "word");
 
     let watcher_task = tokio::spawn(async move {
         watcher.watch().await.unwrap();
     });
 
     tree.remove_node(child_1_id.unwrap());
+
     /*let c = content.clone();
     let sleep_task = tokio::spawn(async move {
         loop {

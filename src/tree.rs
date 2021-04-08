@@ -1,7 +1,7 @@
 use slab::Slab;
 use std::collections::HashMap;
 
-use crate::document::{Identifiable, OnNotify};
+use crate::document::{Identifiable, OnNotify, PassthroughMatcher, PatternMatcher};
 
 pub struct Tree<T>
 where
@@ -25,13 +25,14 @@ where
         // Safety: it is safe to use get_unchecked since this element was added line above
         unsafe {
             data.get_unchecked_mut(root_id).set_id(root_id);
-            data.get_unchecked_mut(root_id).observe_node();
+            data.get_unchecked_mut(root_id)
+                .observe_node(PassthroughMatcher());
         }
 
         (Tree { data, structure }, root_id)
     }
 
-    pub fn add_node(&mut self, parent_id: usize, value: T) -> Option<usize> {
+    pub fn add_node(&mut self, parent_id: usize, value: T, pattern: &str) -> Option<usize> {
         if let Some(parent) = self.structure.get_mut(&parent_id) {
             let node_id = self.data.insert(value);
 
@@ -44,7 +45,9 @@ where
                     .get_unchecked_mut(node_id)
                     .set_parent_rx(parent_rx);
 
-                self.data.get_unchecked_mut(node_id).observe_node();
+                self.data
+                    .get_unchecked_mut(node_id)
+                    .observe_node(PatternMatcher::new(pattern).unwrap());
             }
 
             parent.push(node_id);
