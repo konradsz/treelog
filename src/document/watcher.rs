@@ -15,12 +15,12 @@ use crate::Content;
 
 pub struct Watcher {
     content: Arc<RwLock<Content>>,
-    indices: Arc<RwLock<Vec<u32>>>,
-    tx: Sender<u32>,
+    indices: Arc<RwLock<Vec<usize>>>,
+    tx: Sender<usize>,
 }
 
 impl Watcher {
-    pub fn new(content: Arc<RwLock<Content>>) -> (Self, Arc<RwLock<Vec<u32>>>, Receiver<u32>) {
+    pub fn new(content: Arc<RwLock<Content>>) -> (Self, Arc<RwLock<Vec<usize>>>, Receiver<usize>) {
         let indices = Arc::new(RwLock::new(Vec::new()));
         let (tx, rx) = channel(0);
         (

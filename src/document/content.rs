@@ -22,13 +22,11 @@ impl Content {
         self.data.push(line);
     }
 
-    #[allow(dead_code)]
-    pub fn get_line(&self, index: u32) -> &str {
-        &self.data[index as usize]
+    pub fn get_line(&self, index: usize) -> &str {
+        &self.data[index]
     }
 
-    #[allow(dead_code)]
-    pub fn len(&self) -> usize {
+    pub fn _len(&self) -> usize {
         self.data.len()
     }
 }

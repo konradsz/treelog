@@ -12,11 +12,11 @@ use crate::matcher::Matcher;
 use crate::Content;
 
 pub trait OnNotify {
-    fn get_receiver(&self) -> Receiver<u32>;
-    fn set_parent_rx(&mut self, rx: Receiver<u32>);
+    fn get_receiver(&self) -> Receiver<usize>;
+    fn set_parent_rx(&mut self, rx: Receiver<usize>);
 
-    fn get_indices(&self) -> Arc<RwLock<Vec<u32>>>;
-    fn set_parent_indices(&mut self, indices: Arc<RwLock<Vec<u32>>>);
+    fn get_indices(&self) -> Arc<RwLock<Vec<usize>>>;
+    fn set_parent_indices(&mut self, indices: Arc<RwLock<Vec<usize>>>);
 
     fn observe_node<M: 'static + Matcher + Send>(&mut self, matcher: M);
     fn cancel(&self);
@@ -28,17 +28,17 @@ pub trait Identifiable {
 
 pub struct Node {
     content: Arc<RwLock<Content>>,
-    indices: Arc<RwLock<Vec<u32>>>,
-    parent_indices: Arc<RwLock<Vec<u32>>>,
+    indices: Arc<RwLock<Vec<usize>>>,
+    parent_indices: Arc<RwLock<Vec<usize>>>,
     name: String,
     id: usize,
-    parent_rx: Option<Receiver<u32>>,
-    rx: Option<Receiver<u32>>,
+    parent_rx: Option<Receiver<usize>>,
+    rx: Option<Receiver<usize>>,
     cancellation_token: CancellationToken,
 }
 
 impl Node {
-    pub fn root(content: Arc<RwLock<Content>>, name: String, parent_rx: Receiver<u32>) -> Self {
+    pub fn root(content: Arc<RwLock<Content>>, name: String, parent_rx: Receiver<usize>) -> Self {
         Self {
             content,
             indices: Arc::new(RwLock::new(Vec::new())),
@@ -66,19 +66,19 @@ impl Node {
 }
 
 impl OnNotify for Node {
-    fn get_receiver(&self) -> Receiver<u32> {
+    fn get_receiver(&self) -> Receiver<usize> {
         self.rx.to_owned().unwrap()
     }
 
-    fn set_parent_rx(&mut self, rx: Receiver<u32>) {
+    fn set_parent_rx(&mut self, rx: Receiver<usize>) {
         self.parent_rx = Some(rx);
     }
 
-    fn get_indices(&self) -> Arc<RwLock<Vec<u32>>> {
+    fn get_indices(&self) -> Arc<RwLock<Vec<usize>>> {
         self.indices.clone()
     }
 
-    fn set_parent_indices(&mut self, indices: Arc<RwLock<Vec<u32>>>) {
+    fn set_parent_indices(&mut self, indices: Arc<RwLock<Vec<usize>>>) {
         self.parent_indices = indices;
     }
 
@@ -103,7 +103,7 @@ impl OnNotify for Node {
                 for i in next_index_to_read..=notification_index {
                     let content_index = {
                         let parent_indices_read_lock = parent_indices.read().await;
-                        *parent_indices_read_lock.get(i as usize).unwrap()
+                        *parent_indices_read_lock.get(i).unwrap()
                     };
 
                     let content_read_lock = content.read().await;
@@ -113,7 +113,7 @@ impl OnNotify for Node {
                         let mut indices_write_lock = indices.write().await;
                         let new_index = indices_write_lock.len();
                         indices_write_lock.push(content_index);
-                        tx.send(new_index as u32).unwrap();
+                        tx.send(new_index).unwrap();
                     }
                 }
 

@@ -9,13 +9,13 @@ use std::sync::Arc;
 
 pub struct Subdocument {
     content: Arc<Content>,
-    indices: Vec<u32>,
+    indices: Vec<usize>,
 }
 
 impl Subdocument {
     pub fn full_document(content: Arc<Content>) -> Self {
         Self {
-            indices: (0..content.len()).map(|i| i as u32).collect(),
+            indices: (0..content._len()).map(|i| i).collect(),
             content,
         }
     }
@@ -25,7 +25,7 @@ impl Subdocument {
         let mut searcher = Searcher::new();
 
         let mut indices = Vec::new();
-        for index in 0..content.len() as u32 {
+        for index in 0..content._len() {
             searcher.search_slice(
                 &regex_matcher,
                 content.get_line(index).as_ref(),
