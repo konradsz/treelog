@@ -6,16 +6,18 @@ mod document;
 pub mod matcher;
 mod tree;
 
-use document::{Content, Node, Watcher};
+use document::{Content, Node, OnNotify, Watcher};
 use tree::Tree;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let content = Arc::new(RwLock::new(Content::new("example2".into())?));
 
-    let (watcher, root_notify) = Watcher::new(content.clone());
+    let (watcher, indices, root_notify) = Watcher::new(content.clone());
 
-    let root = Node::root(content.clone(), "root".into(), root_notify.clone());
+    let mut root = Node::root(content.clone(), "root".into(), root_notify.clone());
+    root.set_parent_indices(indices);
+
     let (mut tree, root_id) = Tree::new(root);
 
     let child_1 = Node::new(content.clone(), "child_1".into());
@@ -31,7 +33,7 @@ async fn main() -> Result<()> {
         watcher.watch().await.unwrap();
     });
 
-    tree.remove_node(child_1_id.unwrap());
+    //tree.remove_node(child_1_id.unwrap());
 
     /*let c = content.clone();
     let sleep_task = tokio::spawn(async move {

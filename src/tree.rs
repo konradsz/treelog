@@ -46,6 +46,11 @@ where
                     .get_unchecked_mut(node_id)
                     .set_parent_rx(parent_rx);
 
+                let parent_indices = self.data.get_unchecked_mut(parent_id).get_indices();
+                self.data
+                    .get_unchecked_mut(node_id)
+                    .set_parent_indices(parent_indices);
+
                 self.data
                     .get_unchecked_mut(node_id)
                     .observe_node(PatternMatcher::new(pattern).unwrap());

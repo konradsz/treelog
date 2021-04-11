@@ -15,13 +15,23 @@ use crate::Content;
 
 pub struct Watcher {
     content: Arc<RwLock<Content>>,
+    indices: Arc<RwLock<Vec<u32>>>,
     tx: Sender<u32>,
 }
 
 impl Watcher {
-    pub fn new(content: Arc<RwLock<Content>>) -> (Self, Receiver<u32>) {
+    pub fn new(content: Arc<RwLock<Content>>) -> (Self, Arc<RwLock<Vec<u32>>>, Receiver<u32>) {
+        let indices = Arc::new(RwLock::new(Vec::new()));
         let (tx, rx) = channel(0);
-        (Self { content, tx }, rx)
+        (
+            Self {
+                content,
+                indices: indices.clone(),
+                tx,
+            },
+            indices,
+            rx,
+        )
     }
 
     pub async fn watch(&self) -> Result<()> {
@@ -40,9 +50,10 @@ impl Watcher {
         loop {
             while let Some(line) = lines.next_line().await? {
                 if !line.is_empty() {
-                    //println!("read line: {}", &line);
                     let mut content = self.content.write().await;
                     content.add_line(line);
+                    let mut indices_write_lock = self.indices.write().await;
+                    indices_write_lock.push(read_lines);
                     self.tx.send(read_lines)?;
                     read_lines += 1;
                 }
