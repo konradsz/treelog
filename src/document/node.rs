@@ -101,16 +101,18 @@ impl OnNotify for Node {
                 let notification_index = *parent_rx.borrow();
 
                 for i in next_index_to_read..=notification_index {
-                    let parent_indices_read_lock = parent_indices.read().await;
-                    let content_index = parent_indices_read_lock.get(i as usize).unwrap();
+                    let content_index = {
+                        let parent_indices_read_lock = parent_indices.read().await;
+                        *parent_indices_read_lock.get(i as usize).unwrap()
+                    };
 
                     let content_read_lock = content.read().await;
-                    let line = content_read_lock.get_line(*content_index);
+                    let line = content_read_lock.get_line(content_index);
                     if matcher.matches(line) {
                         println!("\"{}\" matches for \"{}\"", line, name);
                         let mut indices_write_lock = indices.write().await;
                         let new_index = indices_write_lock.len();
-                        indices_write_lock.push(*content_index);
+                        indices_write_lock.push(content_index);
                         tx.send(new_index as u32).unwrap();
                     }
                 }
