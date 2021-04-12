@@ -1,3 +1,4 @@
+use crate::content::Content;
 use anyhow::Result;
 use futures_util::StreamExt;
 use inotify::{Inotify, WatchMask};
@@ -10,8 +11,6 @@ use tokio::{
         RwLock,
     },
 };
-
-use crate::Content;
 
 pub struct Watcher {
     content: Arc<RwLock<Content>>,

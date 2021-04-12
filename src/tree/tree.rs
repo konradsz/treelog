@@ -1,12 +1,12 @@
 use slab::Slab;
 use std::collections::HashMap;
 
-use crate::document::{Identifiable, OnNotify};
 use crate::matcher::{PassthroughMatcher, PatternMatcher};
+use crate::Node;
 
 pub struct Tree<T>
 where
-    T: OnNotify + Identifiable,
+    T: Node,
 {
     data: Slab<T>,
     structure: HashMap<usize, Vec<usize>>,
@@ -14,7 +14,7 @@ where
 
 impl<T> Tree<T>
 where
-    T: OnNotify + Identifiable,
+    T: Node,
 {
     pub fn new(root_value: T) -> (Self, usize) {
         let mut data = Slab::with_capacity(64);
@@ -27,7 +27,7 @@ where
         unsafe {
             data.get_unchecked_mut(root_id).set_id(root_id);
             data.get_unchecked_mut(root_id)
-                .observe_node(PassthroughMatcher());
+                .observe(PassthroughMatcher());
         }
 
         (Tree { data, structure }, root_id)
@@ -53,7 +53,7 @@ where
 
                 self.data
                     .get_unchecked_mut(node_id)
-                    .observe_node(PatternMatcher::new(pattern).unwrap());
+                    .observe(PatternMatcher::new(pattern).unwrap());
             }
 
             parent.push(node_id);

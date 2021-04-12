@@ -8,25 +8,11 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+use crate::content::Content;
 use crate::matcher::Matcher;
-use crate::Content;
+use crate::tree::Node;
 
-pub trait OnNotify {
-    fn get_receiver(&self) -> Receiver<usize>;
-    fn set_parent_rx(&mut self, rx: Receiver<usize>);
-
-    fn get_indices(&self) -> Arc<RwLock<Vec<usize>>>;
-    fn set_parent_indices(&mut self, indices: Arc<RwLock<Vec<usize>>>);
-
-    fn observe_node<M: 'static + Matcher + Send>(&mut self, matcher: M);
-    fn cancel(&self);
-}
-
-pub trait Identifiable {
-    fn set_id(&mut self, id: usize);
-}
-
-pub struct Node {
+pub struct Document {
     content: Arc<RwLock<Content>>,
     indices: Arc<RwLock<Vec<usize>>>,
     parent_indices: Arc<RwLock<Vec<usize>>>,
@@ -37,7 +23,7 @@ pub struct Node {
     cancellation_token: CancellationToken,
 }
 
-impl Node {
+impl Document {
     pub fn root(content: Arc<RwLock<Content>>, name: String, parent_rx: Receiver<usize>) -> Self {
         Self {
             content,
@@ -65,7 +51,11 @@ impl Node {
     }
 }
 
-impl OnNotify for Node {
+impl Node for Document {
+    fn set_id(&mut self, id: usize) {
+        self.id = id;
+    }
+
     fn get_receiver(&self) -> Receiver<usize> {
         self.rx.to_owned().unwrap()
     }
@@ -82,7 +72,7 @@ impl OnNotify for Node {
         self.parent_indices = indices;
     }
 
-    fn observe_node<M: 'static + Matcher + Send>(&mut self, mut matcher: M) {
+    fn observe<M: 'static + Matcher + Send>(&mut self, mut matcher: M) {
         let (tx, rx) = channel(0);
         self.rx = Some(rx);
         let cancellation_token = self.cancellation_token.clone();
@@ -131,11 +121,5 @@ impl OnNotify for Node {
 
     fn cancel(&self) {
         self.cancellation_token.cancel();
-    }
-}
-
-impl Identifiable for Node {
-    fn set_id(&mut self, id: usize) {
-        self.id = id;
     }
 }

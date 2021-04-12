@@ -2,12 +2,16 @@ use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+mod content;
 mod document;
-pub mod matcher;
+mod matcher;
 mod tree;
+mod watcher;
 
-use document::{Content, Node, OnNotify, Watcher};
-use tree::Tree;
+use content::Content;
+use document::Document;
+use tree::{Node, Tree};
+use watcher::Watcher;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,18 +19,18 @@ async fn main() -> Result<()> {
 
     let (watcher, indices, root_notify) = Watcher::new(content.clone());
 
-    let mut root = Node::root(content.clone(), "root".into(), root_notify.clone());
+    let mut root = Document::root(content.clone(), "root".into(), root_notify.clone());
     root.set_parent_indices(indices);
 
     let (mut tree, root_id) = Tree::new(root);
 
-    let child_1 = Node::new(content.clone(), "child_1".into());
+    let child_1 = Document::new(content.clone(), "child_1".into());
     let child_1_id = tree.add_node(root_id, child_1, "line");
 
-    let child_2 = Node::new(content.clone(), "child_2".into());
+    let child_2 = Document::new(content.clone(), "child_2".into());
     let _child_2_id = tree.add_node(root_id, child_2, "child2");
 
-    let child_3 = Node::new(content.clone(), "child_3".into());
+    let child_3 = Document::new(content.clone(), "child_3".into());
     let _child_3_id = tree.add_node(child_1_id.unwrap(), child_3, "word");
 
     let watcher_task = tokio::spawn(async move {
