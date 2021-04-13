@@ -18,20 +18,18 @@ pub struct Document {
     parent_indices: Arc<RwLock<Vec<usize>>>,
     name: String,
     id: NodeId,
-    parent_rx: Option<Receiver<usize>>,
     rx: Option<Receiver<usize>>,
     cancellation_token: CancellationToken,
 }
 
 impl Document {
-    pub fn root(content: Arc<RwLock<Content>>, name: String, parent_rx: Receiver<usize>) -> Self {
+    pub fn root(content: Arc<RwLock<Content>>, name: String) -> Self {
         Self {
             content,
             indices: Arc::new(RwLock::new(Vec::new())),
             parent_indices: Arc::new(RwLock::new(Vec::new())),
             name,
             id: NodeId::default(),
-            parent_rx: Some(parent_rx),
             rx: None,
             cancellation_token: CancellationToken::new(),
         }
@@ -44,7 +42,6 @@ impl Document {
             parent_indices: Arc::new(RwLock::new(Vec::new())),
             name,
             id: NodeId::default(),
-            parent_rx: None,
             rx: None,
             cancellation_token: CancellationToken::new(),
         }
@@ -60,10 +57,6 @@ impl Node for Document {
         self.rx.to_owned().unwrap()
     }
 
-    fn set_parent_rx(&mut self, rx: Receiver<usize>) {
-        self.parent_rx = Some(rx);
-    }
-
     fn get_indices(&self) -> Arc<RwLock<Vec<usize>>> {
         self.indices.clone()
     }
@@ -72,12 +65,15 @@ impl Node for Document {
         self.parent_indices = indices;
     }
 
-    fn observe<M: 'static + Matcher + Send>(&mut self, mut matcher: M) {
+    fn observe<M: 'static + Matcher + Send>(
+        &mut self,
+        mut channel_rx: Receiver<usize>,
+        mut matcher: M,
+    ) {
         let (tx, rx) = channel(0);
         self.rx = Some(rx);
         let cancellation_token = self.cancellation_token.clone();
 
-        let mut parent_rx = self.parent_rx.to_owned().unwrap();
         let name = self.name.clone();
 
         let content = self.content.clone();
@@ -87,8 +83,8 @@ impl Node for Document {
         let observe_task = async move {
             let mut next_index_to_read = 0;
 
-            while parent_rx.changed().await.is_ok() {
-                let notification_index = *parent_rx.borrow();
+            while channel_rx.changed().await.is_ok() {
+                let notification_index = *channel_rx.borrow();
 
                 for i in next_index_to_read..=notification_index {
                     let content_index = {

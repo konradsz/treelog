@@ -1,6 +1,6 @@
 use slab::Slab;
-use std::collections::HashMap;
-use std::convert::From;
+use std::{collections::HashMap, convert::From};
+use tokio::sync::watch::Receiver;
 
 use super::{Node, NodeId};
 use crate::matcher::{PassthroughMatcher, PatternMatcher};
@@ -17,7 +17,7 @@ impl<T> Tree<T>
 where
     T: Node,
 {
-    pub fn new(root_value: T) -> (Self, NodeId) {
+    pub fn new(root_value: T, root_rx: Receiver<usize>) -> (Self, NodeId) {
         let mut data = Slab::with_capacity(64);
         let root_id = NodeId::from(data.insert(root_value));
 
@@ -29,7 +29,7 @@ where
             data.get_unchecked_mut(root_id.into())
                 .set_id(root_id.into());
             data.get_unchecked_mut(root_id.into())
-                .observe(PassthroughMatcher());
+                .observe(root_rx, PassthroughMatcher());
         }
 
         (Tree { data, structure }, root_id)
@@ -43,19 +43,15 @@ where
             unsafe {
                 self.data.get_unchecked_mut(node_id.into()).set_id(node_id);
 
-                let parent_rx = self.data.get_unchecked_mut(parent_id.into()).get_receiver();
-                self.data
-                    .get_unchecked_mut(node_id.into())
-                    .set_parent_rx(parent_rx);
-
                 let parent_indices = self.data.get_unchecked_mut(parent_id.into()).get_indices();
                 self.data
                     .get_unchecked_mut(node_id.into())
                     .set_parent_indices(parent_indices);
 
+                let parent_rx = self.data.get_unchecked_mut(parent_id.into()).get_receiver();
                 self.data
                     .get_unchecked_mut(node_id.into())
-                    .observe(PatternMatcher::new(pattern).unwrap());
+                    .observe(parent_rx, PatternMatcher::new(pattern).unwrap());
             }
 
             parent.push(node_id);

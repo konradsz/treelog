@@ -17,12 +17,12 @@ use watcher::Watcher;
 async fn main() -> Result<()> {
     let content = Arc::new(RwLock::new(Content::new("example2".into())?));
 
-    let (watcher, indices, root_notify) = Watcher::new(content.clone());
+    let (watcher, indices, root_rx) = Watcher::new(content.clone());
 
-    let mut root = Document::root(content.clone(), "root".into(), root_notify.clone());
+    let mut root = Document::root(content.clone(), "root".into());
     root.set_parent_indices(indices);
 
-    let (mut tree, root_id) = Tree::new(root);
+    let (mut tree, root_id) = Tree::new(root, root_rx.clone());
 
     let child_1 = Document::new(content.clone(), "child_1".into());
     let child_1_id = tree.add_node(root_id, child_1, "line");
