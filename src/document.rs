@@ -10,14 +10,14 @@ use tokio_util::sync::CancellationToken;
 
 use crate::content::Content;
 use crate::matcher::Matcher;
-use crate::tree::Node;
+use crate::tree::{Node, NodeId};
 
 pub struct Document {
     content: Arc<RwLock<Content>>,
     indices: Arc<RwLock<Vec<usize>>>,
     parent_indices: Arc<RwLock<Vec<usize>>>,
     name: String,
-    id: usize,
+    id: NodeId,
     parent_rx: Option<Receiver<usize>>,
     rx: Option<Receiver<usize>>,
     cancellation_token: CancellationToken,
@@ -30,7 +30,7 @@ impl Document {
             indices: Arc::new(RwLock::new(Vec::new())),
             parent_indices: Arc::new(RwLock::new(Vec::new())),
             name,
-            id: 0,
+            id: NodeId::default(),
             parent_rx: Some(parent_rx),
             rx: None,
             cancellation_token: CancellationToken::new(),
@@ -43,7 +43,7 @@ impl Document {
             indices: Arc::new(RwLock::new(Vec::new())),
             parent_indices: Arc::new(RwLock::new(Vec::new())),
             name,
-            id: 0,
+            id: NodeId::default(),
             parent_rx: None,
             rx: None,
             cancellation_token: CancellationToken::new(),
@@ -52,7 +52,7 @@ impl Document {
 }
 
 impl Node for Document {
-    fn set_id(&mut self, id: usize) {
+    fn set_id(&mut self, id: NodeId) {
         self.id = id;
     }
 
