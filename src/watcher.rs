@@ -2,7 +2,7 @@ use crate::content::Content;
 use anyhow::Result;
 use futures_util::StreamExt;
 use inotify::{Inotify, WatchMask};
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
@@ -12,14 +12,14 @@ use tokio::{
     },
 };
 
-pub struct Watcher {
-    content: Arc<RwLock<Content>>,
+pub struct Watcher<C: Content> {
+    content: Arc<RwLock<C>>,
     indices: Arc<RwLock<Vec<usize>>>,
     tx: Sender<usize>,
 }
 
-impl Watcher {
-    pub fn new(content: Arc<RwLock<Content>>) -> (Self, Arc<RwLock<Vec<usize>>>, Receiver<usize>) {
+impl<C: Content> Watcher<C> {
+    pub fn new(content: Arc<RwLock<C>>) -> (Self, Arc<RwLock<Vec<usize>>>, Receiver<usize>) {
         let indices = Arc::new(RwLock::new(Vec::new()));
         let (tx, rx) = channel(0);
         (
@@ -33,14 +33,14 @@ impl Watcher {
         )
     }
 
-    pub async fn watch(&self) -> Result<()> {
+    pub async fn watch(&self, path: impl AsRef<Path>) -> Result<()> {
         let content = self.content.read().await;
-        let file = File::open(content.get_path()).await?;
+        let file = File::open(&path).await?;
         let reader = BufReader::new(file);
         let mut lines = reader.lines();
 
         let mut inotify = Inotify::init()?;
-        inotify.add_watch(content.get_path(), WatchMask::CLOSE_WRITE)?;
+        inotify.add_watch(&path, WatchMask::CLOSE_WRITE)?;
         let mut event_buffer = [0u8; 32];
 
         drop(content);

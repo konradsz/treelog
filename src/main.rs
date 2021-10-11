@@ -8,14 +8,14 @@ mod matcher;
 mod tree;
 mod watcher;
 
-use content::Content;
+use content::TextContent;
 use document::Document;
 use tree::{Node, Tree};
 use watcher::Watcher;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let content = Arc::new(RwLock::new(Content::new("example2".into())?));
+    let content = Arc::new(RwLock::new(TextContent::new()));
 
     let (watcher, indices, root_rx) = Watcher::new(content.clone());
 
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     let _child_3_id = tree.add_node(child_1_id.unwrap(), child_3, "word");
 
     let watcher_task = tokio::spawn(async move {
-        watcher.watch().await.unwrap();
+        watcher.watch("example2").await.unwrap();
     });
 
     //tree.remove_node(child_1_id.unwrap());

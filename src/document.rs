@@ -12,8 +12,8 @@ use crate::content::Content;
 use crate::matcher::Matcher;
 use crate::tree::{Node, NodeId};
 
-pub struct Document {
-    content: Arc<RwLock<Content>>,
+pub struct Document<C> {
+    content: Arc<RwLock<C>>,
     indices: Arc<RwLock<Vec<usize>>>,
     parent_indices: Arc<RwLock<Vec<usize>>>,
     name: String,
@@ -22,8 +22,8 @@ pub struct Document {
     cancellation_token: CancellationToken,
 }
 
-impl Document {
-    pub fn root(content: Arc<RwLock<Content>>, name: String) -> Self {
+impl<C> Document<C> {
+    pub fn root(content: Arc<RwLock<C>>, name: String) -> Self {
         Self {
             content,
             indices: Arc::new(RwLock::new(Vec::new())),
@@ -35,7 +35,7 @@ impl Document {
         }
     }
 
-    pub fn new(content: Arc<RwLock<Content>>, name: String) -> Self {
+    pub fn new(content: Arc<RwLock<C>>, name: String) -> Self {
         Self {
             content,
             indices: Arc::new(RwLock::new(Vec::new())),
@@ -48,7 +48,7 @@ impl Document {
     }
 }
 
-impl Node for Document {
+impl<C: 'static + Content + Send + Sync> Node for Document<C> {
     fn set_id(&mut self, id: NodeId) {
         self.id = id;
     }

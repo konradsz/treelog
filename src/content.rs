@@ -1,32 +1,24 @@
-use anyhow::Result;
-use std::path::{Path, PathBuf};
+pub trait Content {
+    fn add_line(&mut self, line: String);
+    fn get_line(&self, index: usize) -> &str;
+}
 
-pub struct Content {
-    path: PathBuf,
+pub struct TextContent {
     data: Vec<String>,
 }
 
-impl Content {
-    pub fn new(path: PathBuf) -> Result<Self> {
-        Ok(Self {
-            path,
-            data: Vec::new(),
-        })
+impl TextContent {
+    pub fn new() -> Self {
+        Self { data: Vec::new() }
     }
+}
 
-    pub fn get_path(&self) -> &Path {
-        self.path.as_path()
-    }
-
-    pub fn add_line(&mut self, line: String) {
+impl Content for TextContent {
+    fn add_line(&mut self, line: String) {
         self.data.push(line);
     }
 
-    pub fn get_line(&self, index: usize) -> &str {
+    fn get_line(&self, index: usize) -> &str {
         &self.data[index]
-    }
-
-    pub fn _len(&self) -> usize {
-        self.data.len()
     }
 }
