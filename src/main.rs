@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 
 mod content;
@@ -19,8 +19,8 @@ async fn main() -> Result<()> {
 
     let (watcher, indices, root_rx) = Watcher::new(content.clone());
 
-    let mut root = Document::root(content.clone(), "root".into());
-    root.set_parent_indices(indices);
+    let mut root = Document::new(content.clone(), "root".into());
+    root.set_parent_indices(indices); // does it need to be here? move it to root constructor? keep indices in content?
 
     let (mut tree, root_id) = Tree::new(root, root_rx.clone());
 
@@ -49,6 +49,12 @@ async fn main() -> Result<()> {
             sleep(Duration::from_millis(1_000)).await;
         }
     });*/
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        let child_4 = Document::new(content.clone(), "child_4".into());
+        let _child_4_id = tree.add_node(_child_3_id.unwrap(), child_4, "line1");
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+    });
 
     watcher_task.await?;
 

@@ -15,3 +15,6 @@ futures-util = "0.3.13"
 slab = "0.4.2"
 async-channel = "1.6.1"
 tokio-util = "0.6.5"
+
+[dev-dependencies]
+mockall = "0.10.2"

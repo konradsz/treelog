@@ -3,7 +3,10 @@ use grep::{
     regex::RegexMatcher,
     searcher::{sinks::UTF8, Searcher},
 };
+#[cfg(test)]
+use mockall::automock;
 
+#[cfg_attr(test, automock)]
 pub trait Matcher {
     fn matches(&mut self, line: &str) -> bool;
 }

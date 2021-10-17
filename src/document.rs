@@ -5,6 +5,7 @@ use tokio::{
         watch::{channel, Receiver},
         RwLock,
     },
+    task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -23,18 +24,6 @@ pub struct Document<C> {
 }
 
 impl<C> Document<C> {
-    pub fn root(content: Arc<RwLock<C>>, name: String) -> Self {
-        Self {
-            content,
-            indices: Arc::new(RwLock::new(Vec::new())),
-            parent_indices: Arc::new(RwLock::new(Vec::new())),
-            name,
-            id: NodeId::default(),
-            rx: None,
-            cancellation_token: CancellationToken::new(),
-        }
-    }
-
     pub fn new(content: Arc<RwLock<C>>, name: String) -> Self {
         Self {
             content,
@@ -67,9 +56,9 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
 
     fn observe<M: 'static + Matcher + Send>(
         &mut self,
-        mut channel_rx: Receiver<usize>,
+        mut new_parent_index: Receiver<usize>,
         mut matcher: M,
-    ) {
+    ) -> JoinHandle<()> {
         let (tx, rx) = channel(0);
         self.rx = Some(rx);
         let cancellation_token = self.cancellation_token.clone();
@@ -83,8 +72,8 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
         let observe_task = async move {
             let mut next_index_to_read = 0;
 
-            while channel_rx.changed().await.is_ok() {
-                let notification_index = *channel_rx.borrow();
+            while new_parent_index.changed().await.is_ok() {
+                let notification_index = *new_parent_index.borrow();
 
                 for i in next_index_to_read..=notification_index {
                     let content_index = {
@@ -112,10 +101,62 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
                 _ = cancellation_token.cancelled() => (),
                 _ = observe_task => (),
             }
-        });
+        })
     }
 
     fn cancel(&self) {
         self.cancellation_token.cancel();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::matcher::MockMatcher;
+    use crate::{content::Content, tree::Node};
+    use mockall::predicate::*;
+
+    struct StubContent {
+        lines: Vec<String>,
+    }
+
+    impl Content for StubContent {
+        fn add_line(&mut self, _: String) {}
+
+        fn get_line(&self, index: usize) -> &str {
+            &self.lines[index]
+        }
+    }
+
+    #[tokio::test]
+    async fn document_is_notified_about_last_parent_index() {
+        const LINES_COUNT: usize = 10;
+
+        let stub_content = StubContent {
+            lines: (0..LINES_COUNT).map(|i| i.to_string()).collect(),
+        };
+
+        let content = Arc::new(RwLock::new(stub_content));
+        let mut document = Document::new(content, "root".into());
+
+        let indices = Arc::new(RwLock::new((0..LINES_COUNT).collect::<Vec<_>>()));
+        document.set_parent_indices(indices);
+
+        let mut matcher = MockMatcher::new();
+        for i in 0..LINES_COUNT {
+            matcher
+                .expect_matches()
+                .withf(move |line: &str| &i.to_string() == line)
+                .times(1)
+                .return_const(true);
+        }
+
+        let (new_parent_index_tx, new_parent_index_rx) = channel(0);
+        let jh = document.observe(new_parent_index_rx, matcher);
+
+        new_parent_index_tx.send(LINES_COUNT - 5).unwrap();
+        new_parent_index_tx.send(LINES_COUNT - 1).unwrap();
+        drop(new_parent_index_tx);
+        jh.await.unwrap();
     }
 }

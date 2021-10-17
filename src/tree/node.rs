@@ -1,6 +1,9 @@
 use crate::matcher::Matcher;
 use std::{convert::From, sync::Arc};
-use tokio::sync::{watch::Receiver, RwLock};
+use tokio::{
+    sync::{watch::Receiver, RwLock},
+    task::JoinHandle,
+};
 
 pub trait Node {
     fn set_id(&mut self, id: NodeId);
@@ -10,7 +13,11 @@ pub trait Node {
     fn get_indices(&self) -> Arc<RwLock<Vec<usize>>>;
     fn set_parent_indices(&mut self, indices: Arc<RwLock<Vec<usize>>>);
 
-    fn observe<M: 'static + Matcher + Send>(&mut self, channel_rx: Receiver<usize>, matcher: M);
+    fn observe<M: 'static + Matcher + Send>(
+        &mut self,
+        new_parent_index: Receiver<usize>,
+        matcher: M,
+    ) -> JoinHandle<()>;
     fn cancel(&self);
 }
 
