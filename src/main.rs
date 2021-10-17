@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     let (watcher, indices, root_rx) = Watcher::new(content.clone());
 
     let mut root = Document::new(content.clone(), "root".into());
-    root.set_parent_indices(indices); // does it need to be here? move it to root constructor? keep indices in content?
+    root.set_parent_indices(indices);
 
     let (mut tree, root_id) = Tree::new(root, root_rx.clone());
 
