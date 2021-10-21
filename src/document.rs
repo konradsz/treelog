@@ -146,6 +146,7 @@ mod tests {
         for i in 0..LINES_COUNT {
             matcher
                 .expect_matches()
+                // expected every element up until last sent index
                 .withf(move |line: &str| &i.to_string() == line)
                 .times(1)
                 .return_const(true);
@@ -157,6 +158,40 @@ mod tests {
         new_parent_index_tx.send(LINES_COUNT - 5).unwrap();
         new_parent_index_tx.send(LINES_COUNT - 1).unwrap();
         drop(new_parent_index_tx);
+        jh.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn document_matches_only_content_elements_belonging_to_parent() {
+        let stub_content = StubContent {
+            lines: (0..10).map(|i| i.to_string()).collect(),
+        };
+
+        let content = Arc::new(RwLock::new(stub_content));
+        let mut document = Document::new(content, "document".into());
+
+        let indices_vector = vec![0, 5];
+        let indices = Arc::new(RwLock::new(indices_vector.clone()));
+        document.set_parent_indices(indices);
+
+        // notify about last element from indices_vector
+        let index_notified = indices_vector.len() - 1;
+
+        let mut matcher = MockMatcher::new();
+        for el in indices_vector {
+            matcher
+                .expect_matches()
+                // expected only "0" and "5" from content
+                .withf(move |line: &str| line == el.to_string())
+                .times(1)
+                .return_const(true);
+        }
+
+        let (channel_tx, channel_rx) = channel(0);
+        let jh = document.observe(channel_rx, matcher);
+
+        channel_tx.send(index_notified).unwrap();
+        drop(channel_tx);
         jh.await.unwrap();
     }
 }
