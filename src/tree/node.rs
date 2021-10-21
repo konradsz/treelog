@@ -15,7 +15,7 @@ pub trait Node {
 
     fn observe<M: 'static + Matcher + Send>(
         &mut self,
-        new_parent_index: Receiver<usize>,
+        new_parent_index_rx: Receiver<usize>,
         matcher: M,
     ) -> JoinHandle<()>;
     fn cancel(&self);

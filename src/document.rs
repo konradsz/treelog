@@ -56,7 +56,7 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
 
     fn observe<M: 'static + Matcher + Send>(
         &mut self,
-        mut new_parent_index: Receiver<usize>,
+        mut new_parent_index_rx: Receiver<usize>,
         mut matcher: M,
     ) -> JoinHandle<()> {
         let (tx, rx) = channel(0);
@@ -72,8 +72,8 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
         let observe_task = async move {
             let mut next_index_to_read = 0;
 
-            while new_parent_index.changed().await.is_ok() {
-                let notification_index = *new_parent_index.borrow();
+            while new_parent_index_rx.changed().await.is_ok() {
+                let notification_index = *new_parent_index_rx.borrow();
 
                 for i in next_index_to_read..=notification_index {
                     let content_index = {
