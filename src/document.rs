@@ -19,7 +19,7 @@ pub struct Document<C> {
     parent_indices: Arc<RwLock<Vec<usize>>>,
     name: String,
     id: NodeId,
-    rx: Option<Receiver<usize>>,
+    new_index_rx: Option<Receiver<usize>>,
     cancellation_token: CancellationToken,
 }
 
@@ -31,7 +31,7 @@ impl<C> Document<C> {
             parent_indices: Arc::new(RwLock::new(Vec::new())),
             name,
             id: NodeId::default(),
-            rx: None,
+            new_index_rx: None,
             cancellation_token: CancellationToken::new(),
         }
     }
@@ -43,7 +43,7 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
     }
 
     fn get_receiver(&self) -> Receiver<usize> {
-        self.rx.to_owned().unwrap()
+        self.new_index_rx.to_owned().unwrap()
     }
 
     fn get_indices(&self) -> Arc<RwLock<Vec<usize>>> {
@@ -60,7 +60,7 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
         mut matcher: M,
     ) -> JoinHandle<()> {
         let (tx, rx) = channel(0);
-        self.rx = Some(rx);
+        self.new_index_rx = Some(rx);
         let cancellation_token = self.cancellation_token.clone();
 
         let name = self.name.clone();
