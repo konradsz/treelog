@@ -170,28 +170,28 @@ mod tests {
         let content = Arc::new(RwLock::new(stub_content));
         let mut document = Document::new(content, "document".into());
 
-        let indices_vector = vec![0, 5];
+        let indices_vector = vec![2, 5, 7];
         let indices = Arc::new(RwLock::new(indices_vector.clone()));
         document.set_parent_indices(indices);
 
-        // notify about last element from indices_vector
-        let index_notified = indices_vector.len() - 1;
+        // notify about second to last element from indices_vector
+        let index_notified = indices_vector.len() - 2;
 
         let mut matcher = MockMatcher::new();
-        for el in indices_vector {
+        for el in indices_vector.into_iter().take(index_notified + 1) {
             matcher
                 .expect_matches()
-                // expected only "0" and "5" from content
+                // expected only "2" and "5" from content
                 .withf(move |line: &str| line == el.to_string())
                 .times(1)
                 .return_const(true);
         }
 
-        let (channel_tx, channel_rx) = channel(0);
-        let jh = document.observe(channel_rx, matcher);
+        let (new_parent_index_tx, new_parent_index_rx) = channel(0);
+        let jh = document.observe(new_parent_index_rx, matcher);
 
-        channel_tx.send(index_notified).unwrap();
-        drop(channel_tx);
+        new_parent_index_tx.send(index_notified).unwrap();
+        drop(new_parent_index_tx);
         jh.await.unwrap();
     }
 }
