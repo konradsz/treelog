@@ -21,9 +21,9 @@ async fn main() -> Result<()> {
     let (watcher, indices, root_rx) = Watcher::new(content.clone());
 
     let mut root = Document::new(
+        "root".into(),
         content.clone(),
         Arc::new(PassthroughMatcher {}),
-        "root".into(),
     );
     // let mut root = Document::new(content.clone(), PatternMatcher::new("")?, "root".into());
     root.set_parent_indices(indices);
@@ -31,23 +31,23 @@ async fn main() -> Result<()> {
     let (mut tree, root_id) = Tree::new(root, root_rx.clone());
 
     let child_1 = Document::new(
+        "child_1".into(),
         content.clone(),
         Arc::new(PatternMatcher::new("line")?),
-        "child_1".into(),
     );
     let child_1_id = tree.add_node(root_id, child_1);
 
     let child_2 = Document::new(
+        "child_2".into(),
         content.clone(),
         Arc::new(PatternMatcher::new("child2")?),
-        "child_2".into(),
     );
     let _child_2_id = tree.add_node(root_id, child_2);
 
     let child_3 = Document::new(
+        "child_3".into(),
         content.clone(),
         Arc::new(PatternMatcher::new("word")?),
-        "child_3".into(),
     );
     let _child_3_id = tree.add_node(child_1_id.unwrap(), child_3);
 
@@ -70,9 +70,9 @@ async fn main() -> Result<()> {
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(1000)).await;
         let child_4 = Document::new(
+            "child_4".into(),
             content.clone(),
             Arc::new(PatternMatcher::new("line1").unwrap()),
-            "child_4".into(),
         );
         let _child_4_id = tree.add_node(_child_3_id.unwrap(), child_4);
         tokio::time::sleep(Duration::from_millis(1000)).await;

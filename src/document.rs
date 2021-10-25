@@ -28,9 +28,9 @@ pub struct Document<C> {
 
 impl<C: Content> Document<C> {
     pub fn new(
+        name: String,
         content: Arc<RwLock<C>>,
         matcher: Arc<dyn Matcher + Send + Sync>,
-        name: String,
     ) -> Self {
         Self {
             content,
@@ -175,7 +175,7 @@ mod tests {
                 .return_const(true);
         }
 
-        let mut document = Document::new(content, Arc::new(matcher), "root".into());
+        let mut document = Document::new("root".into(), content, Arc::new(matcher));
 
         let indices = Arc::new(RwLock::new((0..LINES_COUNT).collect::<Vec<_>>()));
         document.set_parent_indices(indices);
@@ -211,7 +211,7 @@ mod tests {
                 .return_const(true);
         }
 
-        let mut document = Document::new(content, Arc::new(matcher), "document".into());
+        let mut document = Document::new("document".into(), content, Arc::new(matcher));
 
         document.set_parent_indices(indices);
 
