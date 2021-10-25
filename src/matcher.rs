@@ -8,7 +8,7 @@ use mockall::automock;
 
 #[cfg_attr(test, automock)]
 pub trait Matcher {
-    fn matches(&mut self, line: &str) -> bool;
+    fn matches(&self, line: &str) -> bool;
 }
 
 pub struct PatternMatcher {
@@ -24,7 +24,7 @@ impl PatternMatcher {
 }
 
 impl Matcher for PatternMatcher {
-    fn matches(&mut self, line: &str) -> bool {
+    fn matches(&self, line: &str) -> bool {
         let mut found = false;
         Searcher::new()
             .search_slice(
@@ -43,7 +43,7 @@ impl Matcher for PatternMatcher {
 pub struct PassthroughMatcher();
 
 impl Matcher for PassthroughMatcher {
-    fn matches(&mut self, _line: &str) -> bool {
+    fn matches(&self, _line: &str) -> bool {
         true
     }
 }

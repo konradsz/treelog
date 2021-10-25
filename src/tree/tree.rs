@@ -3,7 +3,6 @@ use std::{collections::HashMap, convert::From};
 use tokio::sync::watch::Receiver;
 
 use super::{Node, NodeId};
-use crate::matcher::{PassthroughMatcher, PatternMatcher};
 
 pub struct Tree<T>
 where
@@ -28,14 +27,13 @@ where
         unsafe {
             data.get_unchecked_mut(root_id.into())
                 .set_id(root_id.into());
-            data.get_unchecked_mut(root_id.into())
-                .observe(root_rx, PassthroughMatcher());
+            data.get_unchecked_mut(root_id.into()).observe(root_rx);
         }
 
         (Tree { data, structure }, root_id)
     }
 
-    pub fn add_node(&mut self, parent_id: NodeId, value: T, pattern: &str) -> Option<NodeId> {
+    pub fn add_node(&mut self, parent_id: NodeId, value: T) -> Option<NodeId> {
         if let Some(parent) = self.structure.get_mut(&parent_id) {
             let node_id = NodeId::from(self.data.insert(value));
 
@@ -51,7 +49,7 @@ where
                 let parent_rx = self.data.get_unchecked_mut(parent_id.into()).get_receiver();
                 self.data
                     .get_unchecked_mut(node_id.into())
-                    .observe(parent_rx, PatternMatcher::new(pattern).unwrap());
+                    .observe(parent_rx);
             }
 
             parent.push(node_id);

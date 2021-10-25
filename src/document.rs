@@ -2,19 +2,22 @@ use std::sync::Arc;
 use tokio::{
     select,
     sync::{
-        watch::{channel, Receiver},
+        watch::{channel, Receiver, Sender},
         RwLock,
     },
     task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::content::Content;
-use crate::matcher::Matcher;
-use crate::tree::{Node, NodeId};
+use crate::{
+    content::Content,
+    matcher::Matcher,
+    tree::{Node, NodeId},
+};
 
 pub struct Document<C> {
     content: Arc<RwLock<C>>,
+    matcher: Arc<dyn Matcher + Send + Sync>,
     indices: Arc<RwLock<Vec<usize>>>,
     parent_indices: Arc<RwLock<Vec<usize>>>,
     name: String,
@@ -23,16 +26,49 @@ pub struct Document<C> {
     cancellation_token: CancellationToken,
 }
 
-impl<C> Document<C> {
-    pub fn new(content: Arc<RwLock<C>>, name: String) -> Self {
+impl<C: Content> Document<C> {
+    pub fn new(
+        content: Arc<RwLock<C>>,
+        matcher: Arc<dyn Matcher + Send + Sync>,
+        name: String,
+    ) -> Self {
         Self {
             content,
+            matcher,
             indices: Arc::new(RwLock::new(Vec::new())),
             parent_indices: Arc::new(RwLock::new(Vec::new())),
             name,
             id: NodeId::default(),
             new_index_rx: None,
             cancellation_token: CancellationToken::new(),
+        }
+    }
+
+    async fn match_indices_range(
+        next_index_to_read: usize,
+        notification_index: usize,
+        parent_indices: &Arc<RwLock<Vec<usize>>>,
+        indices: &Arc<RwLock<Vec<usize>>>,
+        content: &Arc<RwLock<C>>,
+        matcher: &Arc<dyn Matcher + Send + Sync>,
+        tx: &Sender<usize>,
+        name: &str, // TO REMOVE
+    ) {
+        for i in next_index_to_read..=notification_index {
+            let content_index = {
+                let parent_indices_read_lock = parent_indices.read().await;
+                *parent_indices_read_lock.get(i).unwrap()
+            };
+
+            let content_read_lock = content.read().await;
+            let line = content_read_lock.get_line(content_index);
+            if matcher.matches(line) {
+                println!("\"{}\" matches for \"{}\"", line, name);
+                let mut indices_write_lock = indices.write().await;
+                let new_index = indices_write_lock.len();
+                indices_write_lock.push(content_index);
+                tx.send(new_index).unwrap();
+            }
         }
     }
 }
@@ -54,11 +90,7 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
         self.parent_indices = indices;
     }
 
-    fn observe<M: 'static + Matcher + Send>(
-        &mut self,
-        mut new_parent_index_rx: Receiver<usize>,
-        mut matcher: M,
-    ) -> JoinHandle<()> {
+    fn observe(&mut self, mut new_parent_index_rx: Receiver<usize>) -> JoinHandle<()> {
         let (tx, rx) = channel(0);
         self.new_index_rx = Some(rx);
         let cancellation_token = self.cancellation_token.clone();
@@ -69,28 +101,25 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
         let indices = self.indices.clone();
         let parent_indices = self.parent_indices.clone();
 
+        let matcher = self.matcher.clone();
+
         let observe_task = async move {
             let mut next_index_to_read = 0;
 
             while new_parent_index_rx.changed().await.is_ok() {
                 let notification_index = *new_parent_index_rx.borrow();
 
-                for i in next_index_to_read..=notification_index {
-                    let content_index = {
-                        let parent_indices_read_lock = parent_indices.read().await;
-                        *parent_indices_read_lock.get(i).unwrap()
-                    };
-
-                    let content_read_lock = content.read().await;
-                    let line = content_read_lock.get_line(content_index);
-                    if matcher.matches(line) {
-                        println!("\"{}\" matches for \"{}\"", line, name);
-                        let mut indices_write_lock = indices.write().await;
-                        let new_index = indices_write_lock.len();
-                        indices_write_lock.push(content_index);
-                        tx.send(new_index).unwrap();
-                    }
-                }
+                Self::match_indices_range(
+                    next_index_to_read,
+                    notification_index,
+                    &parent_indices,
+                    &indices,
+                    &content,
+                    &matcher,
+                    &tx,
+                    &name, // TO REMOVE
+                )
+                .await;
 
                 next_index_to_read = notification_index + 1;
             }
@@ -112,8 +141,7 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::matcher::MockMatcher;
-    use crate::{content::Content, tree::Node};
+    use crate::{content::Content, matcher::MockMatcher, tree::Node};
     use mockall::predicate::*;
 
     struct StubContent {
@@ -135,12 +163,7 @@ mod tests {
         let stub_content = StubContent {
             lines: (0..LINES_COUNT).map(|i| i.to_string()).collect(),
         };
-
         let content = Arc::new(RwLock::new(stub_content));
-        let mut document = Document::new(content, "root".into());
-
-        let indices = Arc::new(RwLock::new((0..LINES_COUNT).collect::<Vec<_>>()));
-        document.set_parent_indices(indices);
 
         let mut matcher = MockMatcher::new();
         for i in 0..LINES_COUNT {
@@ -152,8 +175,13 @@ mod tests {
                 .return_const(true);
         }
 
+        let mut document = Document::new(content, Arc::new(matcher), "root".into());
+
+        let indices = Arc::new(RwLock::new((0..LINES_COUNT).collect::<Vec<_>>()));
+        document.set_parent_indices(indices);
+
         let (new_parent_index_tx, new_parent_index_rx) = channel(0);
-        let jh = document.observe(new_parent_index_rx, matcher);
+        let jh = document.observe(new_parent_index_rx);
 
         new_parent_index_tx.send(LINES_COUNT - 5).unwrap();
         new_parent_index_tx.send(LINES_COUNT - 1).unwrap();
@@ -166,14 +194,10 @@ mod tests {
         let stub_content = StubContent {
             lines: (0..10).map(|i| i.to_string()).collect(),
         };
-
         let content = Arc::new(RwLock::new(stub_content));
-        let mut document = Document::new(content, "document".into());
 
         let indices_vector = vec![2, 5, 7];
         let indices = Arc::new(RwLock::new(indices_vector.clone()));
-        document.set_parent_indices(indices);
-
         // notify about second to last element from indices_vector
         let index_notified = indices_vector.len() - 2;
 
@@ -187,8 +211,12 @@ mod tests {
                 .return_const(true);
         }
 
+        let mut document = Document::new(content, Arc::new(matcher), "document".into());
+
+        document.set_parent_indices(indices);
+
         let (new_parent_index_tx, new_parent_index_rx) = channel(0);
-        let jh = document.observe(new_parent_index_rx, matcher);
+        let jh = document.observe(new_parent_index_rx);
 
         new_parent_index_tx.send(index_notified).unwrap();
         drop(new_parent_index_tx);
