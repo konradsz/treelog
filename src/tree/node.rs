@@ -5,8 +5,6 @@ use tokio::{
 };
 
 pub trait Node {
-    fn set_id(&mut self, id: NodeId);
-
     fn get_receiver(&self) -> Receiver<usize>;
 
     fn get_indices(&self) -> Arc<RwLock<Vec<usize>>>;

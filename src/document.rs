@@ -9,11 +9,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    content::Content,
-    matcher::Matcher,
-    tree::{Node, NodeId},
-};
+use crate::{content::Content, matcher::Matcher, tree::Node};
 
 pub struct Document<C> {
     content: Arc<RwLock<C>>,
@@ -21,7 +17,6 @@ pub struct Document<C> {
     indices: Arc<RwLock<Vec<usize>>>,
     parent_indices: Arc<RwLock<Vec<usize>>>,
     name: String,
-    id: NodeId,
     new_index_rx: Option<Receiver<usize>>,
     cancellation_token: CancellationToken,
 }
@@ -38,7 +33,6 @@ impl<C: Content> Document<C> {
             indices: Arc::new(RwLock::new(Vec::new())),
             parent_indices: Arc::new(RwLock::new(Vec::new())),
             name,
-            id: NodeId::default(),
             new_index_rx: None,
             cancellation_token: CancellationToken::new(),
         }
@@ -74,10 +68,6 @@ impl<C: Content> Document<C> {
 }
 
 impl<C: 'static + Content + Send + Sync> Node for Document<C> {
-    fn set_id(&mut self, id: NodeId) {
-        self.id = id;
-    }
-
     fn get_receiver(&self) -> Receiver<usize> {
         self.new_index_rx.to_owned().unwrap()
     }

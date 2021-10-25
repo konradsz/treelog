@@ -25,8 +25,6 @@ where
 
         // Safety: it is safe to use get_unchecked since this element was added line above
         unsafe {
-            data.get_unchecked_mut(root_id.into())
-                .set_id(root_id.into());
             data.get_unchecked_mut(root_id.into()).observe(root_rx);
         }
 
@@ -39,8 +37,6 @@ where
 
             // Safety: it is safe to use get_unchecked since this element was added line above
             unsafe {
-                self.data.get_unchecked_mut(node_id.into()).set_id(node_id);
-
                 let parent_indices = self.data.get_unchecked_mut(parent_id.into()).get_indices();
                 self.data
                     .get_unchecked_mut(node_id.into())
