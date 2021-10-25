@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::RangeInclusive, sync::Arc};
 use tokio::{
     select,
     sync::{
@@ -39,8 +39,7 @@ impl<C: Content> Document<C> {
     }
 
     async fn match_indices_range(
-        next_index_to_read: usize,
-        notification_index: usize,
+        range: RangeInclusive<usize>,
         parent_indices: &Arc<RwLock<Vec<usize>>>,
         indices: &Arc<RwLock<Vec<usize>>>,
         content: &Arc<RwLock<C>>,
@@ -48,7 +47,7 @@ impl<C: Content> Document<C> {
         tx: &Sender<usize>,
         name: &str, // TO REMOVE
     ) {
-        for i in next_index_to_read..=notification_index {
+        for i in range {
             let content_index = {
                 let parent_indices_read_lock = parent_indices.read().await;
                 *parent_indices_read_lock.get(i).unwrap()
@@ -100,8 +99,7 @@ impl<C: 'static + Content + Send + Sync> Node for Document<C> {
                 let notification_index = *new_parent_index_rx.borrow();
 
                 Self::match_indices_range(
-                    next_index_to_read,
-                    notification_index,
+                    next_index_to_read..=notification_index,
                     &parent_indices,
                     &indices,
                     &content,
